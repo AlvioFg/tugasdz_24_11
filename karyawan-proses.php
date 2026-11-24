@@ -1,14 +1,18 @@
 <?php
-require 'config.php';
+require_once 'auth.php';
 
-$aksi = $_POST['aksi'] ?? $_GET['aksi'] ?? 'simpan';
-$id   = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: index.php');
+    exit;
+}
 
-/* HAPUS */
+verify_csrf($_POST['csrf_token'] ?? '');
+
+$aksi = $_POST['aksi'] ?? 'simpan';
+$id   = (int)($_POST['id'] ?? 0);
+
 if ($aksi === 'hapus') {
-    $stmt = $conn->prepare(
-        "SELECT COUNT(*) AS jml FROM absensi WHERE karyawan_id = ?"
-    );
+    $stmt = $conn->prepare("SELECT COUNT(*) AS jml FROM absensi WHERE karyawan_id = ?");
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $cek = $stmt->get_result()->fetch_assoc();
@@ -28,22 +32,19 @@ if ($aksi === 'hapus') {
     exit;
 }
 
-/* SIMPAN / UPDATE */
 $nama       = trim($_POST['nama'] ?? '');
 $jabatan    = trim($_POST['jabatan'] ?? '');
 $departemen = trim($_POST['departemen'] ?? '');
 
-if ($nama === '') {
-    $redir = 'karyawan-form.php?pesan=wajib_nama' . ($id ? '&id=' . $id : '');
+if ($nama === '' || $jabatan === '' || $departemen === '') {
+    $redir = 'karyawan-form.php?pesan=wajib_lengkap' . ($id ? '&id=' . $id : '');
     header('Location: ' . $redir);
     exit;
 }
 
 if ($id > 0) {
     $stmt = $conn->prepare(
-        "UPDATE karyawan
-         SET nama = ?, jabatan = ?, departemen = ?
-         WHERE id = ?"
+        "UPDATE karyawan SET nama = ?, jabatan = ?, departemen = ? WHERE id = ?"
     );
     $stmt->bind_param('sssi', $nama, $jabatan, $departemen, $id);
     $stmt->execute();
@@ -51,8 +52,7 @@ if ($id > 0) {
     header('Location: index.php?pesan=edit');
 } else {
     $stmt = $conn->prepare(
-        "INSERT INTO karyawan (nama, jabatan, departemen)
-         VALUES (?, ?, ?)"
+        "INSERT INTO karyawan (nama, jabatan, departemen) VALUES (?, ?, ?)"
     );
     $stmt->bind_param('sss', $nama, $jabatan, $departemen);
     $stmt->execute();
